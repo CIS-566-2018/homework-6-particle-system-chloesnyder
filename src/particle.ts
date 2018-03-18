@@ -92,6 +92,7 @@ class Particle {
    // updates the acceleration
    applyForce(f: vec3)
    {
+       
         var newAcc = vec3.create();
         vec3.scale(newAcc, f, 1/this.mass);
         this.acceleration = newAcc;

@@ -1,4 +1,4 @@
-import {vec3, vec4} from 'gl-matrix';
+import {vec3, vec4, mat4} from 'gl-matrix';
 import * as Stats from 'stats-js';
 import * as DAT from 'dat-gui';
 import Square from './geometry/Square';
@@ -7,6 +7,7 @@ import Camera from './Camera';
 import {setGL} from './globals';
 import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 import Particle from './particle';
+import { transformMat4 } from 'gl-vec4';
 
 // Define an object with application parameters and button callbacks
 // This will be referred to by dat.GUI's functions that add GUI elements.
@@ -29,6 +30,7 @@ let mouseUpY: number;
 
 let attractParticles: boolean;
 let repelParticles: boolean;
+
 
 function cosColor(t: number) : vec3
 {
@@ -130,6 +132,95 @@ function main() {
     new Shader(gl.VERTEX_SHADER, require('./shaders/particle-vert.glsl')),
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/particle-frag.glsl')),
   ]);
+  
+  function raycast() : vec3
+  {
+    if(isNaN(mouseDownX) || isNaN(mouseDownY))
+    {
+      return vec3.fromValues(0, 0, 0);
+    }
+    
+    // raycast mouseDownX and mouseDownY to a worldspace vec3
+    // 1) convert to NDC
+    var sx = (2.0 * mouseDownX/window.innerWidth) - 1.0;
+    var sy = 1.0 - (2.0 * mouseDownY/window.innerHeight);
+
+    // P = ViewMat-1 * ProjMat-1 * ((sx, sy, 1,1 ) * farClip)
+    var viewMat = mat4.create();
+    mat4.invert(viewMat, camera.viewMatrix);
+    var projMat = mat4.create();
+    mat4.invert(projMat, camera.projectionMatrix);
+    var screenPos = vec4.fromValues(sx, sy, 1.0, 1.0);
+    var v = vec4.create();
+    vec4.scale(v, screenPos, camera.far);
+    var viewProjMat = mat4.create();
+    mat4.multiply(viewProjMat, viewMat, projMat);
+    var p = vec4.create();
+    transformMat4(p, v, viewProjMat);
+    var toReturn = vec3.fromValues(p[0], p[1], p[2]);
+   // console.log(toReturn);
+    return toReturn;
+   
+   /*// 2) screen point to world point
+    // ref = eye + t * F, where t = any float > 0
+    var t = .5;
+    var scaleF = vec3.create();
+    var ref = vec3.create();
+    vec3.scale(scaleF, camera.forward, t);
+    vec3.add(ref, camera.position, scaleF);
+    // len = |ref - eye|
+    var refminuseye = vec3.create();
+    vec3.subtract(refminuseye, ref, camera.position);
+    var len = vec3.length(refminuseye);
+    // V = U*len*tan(alpha)
+    var alpha = camera.fovy / 2.0;
+    var V = vec3.create();
+    vec3.scale(V, camera.up, len*Math.tan(alpha));
+    // H = R*len*aspec*tan(alpha)
+    var H = vec3.create();
+    vec3.scale(H, camera.right, len*camera.aspectRatio*Math.tan(alpha));
+    // p = ref + sx*H +sy*V
+    var p = vec3.create();
+    var sxH = vec3.create();
+    var syV = vec3.create();
+    vec3.scale(sxH, H, sx);
+    vec3.scale(syV, V, sy);
+    vec3.add(p, ref, sxH);
+    vec3.add(p, p, syV);
+
+    return p;*/
+
+    // 3) 
+
+  }
+
+  // referenced http://natureofcode.com/book/chapter-2-forces/
+  function calculateForce(p : Particle) : vec3
+  {
+    // transform mosueclick (x,y) coords into worldspace coords
+    var mouseClickWorldLocation = raycast();
+    // calculate direction (mousePos - particlePos)
+    var direction = vec3.create();
+    vec3.subtract(direction, mouseClickWorldLocation, p.currPos);
+    vec3.normalize(direction, direction);
+
+    var G = 6.67428 * Math.pow(10, -11);
+    var mass1 = p.mass;
+    var mass2 = 300 * mass1; // arbitrarily setting mass of attractor to be 3 times that of a particle
+    var distance = vec3.distance(mouseClickWorldLocation, p.currPos);
+    var m = (G * mass1 * mass2) / (distance * distance);
+    var dir = vec3.create();
+
+    if(attractParticles)
+    {    
+      vec3.scale(dir, direction, m);
+
+    } else if (repelParticles)
+    {
+      vec3.scale(dir, direction, m * -1.0);
+    }
+    return dir;
+  }
 
   // This function will be called every frame
   function tick() {
@@ -149,10 +240,11 @@ function main() {
     for(let i = 0; i < particles.length; i++)
     {
       let p = particles[i];
-      var fx = -.001;
-      var fy = -.001;
-    
-      p.applyForce(vec3.fromValues(fx, fy, 0));
+
+      var v = vec3.create();
+      vec3.scale(v, calculateForce(p), 100000000);
+      //if(attractParticles && !isNaN(mouseDownX))   {debugger;}
+      p.applyForce(v);
       p.step(dt);
      
       //update offsets array
@@ -187,21 +279,24 @@ function main() {
 
   // event listener for kepress
   window.addEventListener('keypress', (e: KeyboardEvent) => {
-    if(e.key === "A")
+    if(e.key === "a")
     {
       attractParticles = true;
       repelParticles = false;
+      console.log("Pressed A");
     } 
-    if(e.key === "R")
+    if(e.key === "r")
     {
       attractParticles = false;
       repelParticles = true;
+      console.log("Pressed R");
     }
   });
 
   window.addEventListener('mousedown',(ev: MouseEvent) => {
     mouseDownX = ev.screenX;
     mouseDownY = ev.screenY;
+    console.log("x: " + mouseDownX + ", y: " + mouseDownX);
   });
 
   window.addEventListener('mouseup', (ev: MouseEvent) => {
