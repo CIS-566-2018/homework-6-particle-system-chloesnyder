@@ -22,6 +22,14 @@ let offsetsArray: Array<number>;
 let colorsArray: Array<number>;
 let n: number;
 
+let mouseDownX: number;
+let mouseDownY: number;
+let mouseUpX: number;
+let mouseUpY: number;
+
+let attractParticles: boolean;
+let repelParticles: boolean;
+
 function cosColor(t: number) : vec3
 {
   // vector parameters for color cosine curve, red -> pink -> purple
@@ -176,6 +184,30 @@ function main() {
     camera.setAspectRatio(window.innerWidth / window.innerHeight);
     camera.updateProjectionMatrix();
   }, false);
+
+  // event listener for kepress
+  window.addEventListener('keypress', (e: KeyboardEvent) => {
+    if(e.key === "A")
+    {
+      attractParticles = true;
+      repelParticles = false;
+    } 
+    if(e.key === "R")
+    {
+      attractParticles = false;
+      repelParticles = true;
+    }
+  });
+
+  window.addEventListener('mousedown',(ev: MouseEvent) => {
+    mouseDownX = ev.screenX;
+    mouseDownY = ev.screenY;
+  });
+
+  window.addEventListener('mouseup', (ev: MouseEvent) => {
+    mouseUpX = ev.screenX;
+    mouseUpY = ev.screenY;
+  });
 
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.setAspectRatio(window.innerWidth / window.innerHeight);
