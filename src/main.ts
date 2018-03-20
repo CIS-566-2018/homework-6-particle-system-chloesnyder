@@ -238,17 +238,19 @@ function main() {
       vec3.normalize(direction, direction);
     }*/
 
-    var G = .09;
+    var G = .05;
+    var scaleMass2 = 3;
     if(attractParticles)
     {
       G = 1.0;
+      scaleMass2 = 10;
     }
     
     var mass1 = p.mass;
-    var mass2 = 5 * mass1; // arbitrarily setting mass of attractor to be 2 times that of a particle
+    var mass2 = scaleMass2 * mass1; // arbitrarily setting mass of attractor to be 2 times that of a particle
 
     //console.log(distance);
-    var m = (G * mass1 * mass2) / (distance * distance * .25);
+    var m = (G * mass1 * mass2) / (distance * distance );
     var dir = vec3.fromValues(0, 0, 0);
 
     if(attractParticles)
