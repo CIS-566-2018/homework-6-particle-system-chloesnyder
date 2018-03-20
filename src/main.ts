@@ -152,6 +152,8 @@ function main() {
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/particle-frag.glsl')),
   ]);
   
+
+
   function raycast() : vec3
   {
     if(isNaN(mouseDownX) || isNaN(mouseDownY))
@@ -165,30 +167,32 @@ function main() {
     var sy = 1.0 - (2.0 * mouseDownY/window.innerHeight);
     console.log(sx, sy);
 
-    // P = ViewMat-1 * ProjMat-1 * ((sx, sy, 1,1 ) * farClip)
-    var viewMat = mat4.create();
-    mat4.invert(viewMat, camera.viewMatrix);
-    var projMat = mat4.create();
-    mat4.invert(projMat, camera.projectionMatrix);
-    var screenPos = vec4.fromValues(sx, sy, 1.0, 1.0);
-    var v = vec4.create();
-    vec4.scale(v, screenPos, camera.far);
-    var viewProjMat = mat4.create();
-    mat4.multiply(viewProjMat, viewMat, projMat);
-    var p = vec4.create();
-    transformMat4(p, v, viewProjMat);
-    var toReturn = vec3.fromValues(p[0], p[1], p[2]);
+    // 2) screen point to world point
 
-    toReturn = vec3.subtract(toReturn, camera.position, toReturn);
-    // far minus camera positon, normalize it to get direction, then scale it by distance between ref and camera position, then add camera position
-    vec3.normalize(toReturn, toReturn);
-    vec3.scale(toReturn, toReturn, vec3.distance(camera.position, camera.target));
-    vec3.add(toReturn, toReturn, camera.position);
+    // len = |ref - eye|
+    var refminuseye = vec3.create();
+    vec3.subtract(refminuseye, camera.target, camera.position);
+    var len = vec3.length(refminuseye);
+   
+    // V = U*len*tan(alpha)
+    var alpha = camera.fovy / 2.0;
+    var V = vec3.create();
+    vec3.scale(V, camera.up, len*Math.tan(alpha));
+   
+    // H = R*len*aspec*tan(alpha)
+    var H = vec3.create();
+    vec3.scale(H, camera.right, len*camera.aspectRatio*Math.tan(alpha));
+  
+    // p = ref + sx*H +sy*V
+    var p = vec3.create();
+    var sxH = vec3.create();
+    var syV = vec3.create();
+    vec3.scale(sxH, H, sx);
+    vec3.scale(syV, V, sy);
+    vec3.add(p, syV, sxH);
+    vec3.add(p, p, camera.target);
 
-    toReturn[2] = 0;
-    
-    return toReturn;
-
+    return p;
   }
 
   // referenced http://natureofcode.com/book/chapter-2-forces/
@@ -347,8 +351,8 @@ function main() {
   });
 
   window.addEventListener('mousedown',(ev: MouseEvent) => {
-    mouseDownX = ev.screenX - canvas.offsetLeft;
-    mouseDownY = ev.screenY - canvas.offsetTop;
+    mouseDownX = ev.screenX;
+    mouseDownY = ev.screenY;
     // transform mosueclick (x,y) coords into worldspace coords
     mouseClickWorldLocation = raycast();
     console.log("x: " + mouseDownX + ", y: " + mouseDownY);
