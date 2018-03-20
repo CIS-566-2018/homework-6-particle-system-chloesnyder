@@ -28,8 +28,12 @@ let mouseDownY: number;
 let mouseUpX: number;
 let mouseUpY: number;
 
-let attractParticles: boolean;
-let repelParticles: boolean;
+let attractParticles: boolean = true;
+let repelParticles: boolean = false;
+
+let mouseClickWorldLocation: vec3;
+
+let bounds: number;
 
 
 function cosColor(t: number) : vec3
@@ -56,6 +60,7 @@ function cosColor(t: number) : vec3
 
 function setUpParticles()
 {
+  bounds = 15;
   particles = new Array<Particle>();
   square = new Square();
   square.create();
@@ -63,12 +68,24 @@ function setUpParticles()
   // Set up particles here. Hard-coded example data for now
   offsetsArray = [];
   colorsArray = [];
-  n = 10.0;
+  n = 20.0;
   var id = 0;
   
   for(let i = 0; i < n; i++) {
     for(let j = 0; j < n; j++) {
-      var position = vec3.fromValues(i, j, 0);
+      //randomly generate curr and "previous" position within bounding box for initial velocity
+      var cX = i;//Math.random() * bounds - (bounds / 2);
+      var cY = j;//Math.random() * bounds - (bounds / 2);
+      var cZ = 0;//Math.random() * bounds - (bounds / 2);
+
+      var pX = i;//Math.random() * bounds - (bounds / 2);
+      var pY = j;//Math.random() * bounds - (bounds / 2);
+      var pZ = 0;//Math.random() * bounds - (bounds / 2);
+ 
+
+     // var position = vec3.fromValues(i, j, 0);
+      var position = vec3.fromValues(cX, cY, 0);
+      var prevPos = vec3.fromValues(pX, pY, 0);
       var velocity = vec3.fromValues(0, 0, 0);
       var acceleration = vec3.fromValues(0, 0, 0);
       var offset = vec3.fromValues(i, j, 0);
@@ -77,10 +94,12 @@ function setUpParticles()
       var vec3color = cosColor(t);
       var color = vec4.fromValues(Math.max(0, vec3color[0]), Math.max(0, vec3color[1]), Math.max(0, vec3color[2]), 1.0);
       var currParticle = new Particle(position, velocity, acceleration, offset, color, id);
+      currParticle.prevPos = prevPos;
+      currParticle.bounds = bounds;
       particles.push(currParticle);
 
-      offsetsArray.push(i);
-      offsetsArray.push(j);
+      offsetsArray.push(cX);
+      offsetsArray.push(cY);
       offsetsArray.push(0);
 
       colorsArray.push(color[0]);
@@ -144,6 +163,7 @@ function main() {
     // 1) convert to NDC
     var sx = (2.0 * mouseDownX/window.innerWidth) - 1.0;
     var sy = 1.0 - (2.0 * mouseDownY/window.innerHeight);
+    console.log(sx, sy);
 
     // P = ViewMat-1 * ProjMat-1 * ((sx, sy, 1,1 ) * farClip)
     var viewMat = mat4.create();
@@ -158,67 +178,100 @@ function main() {
     var p = vec4.create();
     transformMat4(p, v, viewProjMat);
     var toReturn = vec3.fromValues(p[0], p[1], p[2]);
-   // console.log(toReturn);
+
+    toReturn = vec3.subtract(toReturn, camera.position, toReturn);
+    // far minus camera positon, normalize it to get direction, then scale it by distance between ref and camera position, then add camera position
+    vec3.normalize(toReturn, toReturn);
+    vec3.scale(toReturn, toReturn, vec3.distance(camera.position, camera.target));
+    vec3.add(toReturn, toReturn, camera.position);
+
+    toReturn[2] = 0;
+    
     return toReturn;
-   
-   /*// 2) screen point to world point
-    // ref = eye + t * F, where t = any float > 0
-    var t = .5;
-    var scaleF = vec3.create();
-    var ref = vec3.create();
-    vec3.scale(scaleF, camera.forward, t);
-    vec3.add(ref, camera.position, scaleF);
-    // len = |ref - eye|
-    var refminuseye = vec3.create();
-    vec3.subtract(refminuseye, ref, camera.position);
-    var len = vec3.length(refminuseye);
-    // V = U*len*tan(alpha)
-    var alpha = camera.fovy / 2.0;
-    var V = vec3.create();
-    vec3.scale(V, camera.up, len*Math.tan(alpha));
-    // H = R*len*aspec*tan(alpha)
-    var H = vec3.create();
-    vec3.scale(H, camera.right, len*camera.aspectRatio*Math.tan(alpha));
-    // p = ref + sx*H +sy*V
-    var p = vec3.create();
-    var sxH = vec3.create();
-    var syV = vec3.create();
-    vec3.scale(sxH, H, sx);
-    vec3.scale(syV, V, sy);
-    vec3.add(p, ref, sxH);
-    vec3.add(p, p, syV);
-
-    return p;*/
-
-    // 3) 
 
   }
 
   // referenced http://natureofcode.com/book/chapter-2-forces/
   function calculateForce(p : Particle) : vec3
   {
-    // transform mosueclick (x,y) coords into worldspace coords
-    var mouseClickWorldLocation = raycast();
     // calculate direction (mousePos - particlePos)
-    var direction = vec3.create();
-    vec3.subtract(direction, mouseClickWorldLocation, p.currPos);
-    vec3.normalize(direction, direction);
+    var offset = vec3.fromValues(0, 0, 0);
+    if(mouseClickWorldLocation == null) mouseClickWorldLocation = vec3.fromValues(0,0,0);
 
-    var G = 6.67428 * Math.pow(10, -11);
+    var mouseOffset = vec3.fromValues(Math.random(), Math.random(), Math.random());
+    vec3.normalize(mouseOffset, mouseOffset);
+    var pointOfInterest = vec3.create();
+    vec3.scaleAndAdd(pointOfInterest, mouseClickWorldLocation, mouseOffset, .1 * bounds);
+
+    vec3.subtract(offset, pointOfInterest, p.currPos);
+    //var particleOffset
+
+    /*
+    - Offset = currPos - attractor
+    - distance = length of offset
+    - if distance < epsilon, offset = random small direction
+    - distance = length(random small direction)
+    direction = normalize(offset)
+    */
+    var distance = vec3.length(offset);
+    if(distance < 1e-4)
+    {
+      offset = vec3.fromValues(Math.random() * .01, Math.random() * .01, Math.random() * .01);
+      distance = vec3.length(offset);
+    }
+
+    if (distance < bounds) {
+      distance = bounds;
+    }
+    
+    const farThreshold = 20;
+    if (distance > farThreshold)
+    {
+      distance = farThreshold; // tune this value, but keeps it from getting too far away
+    }
+    // console.log(distance);
+
+    var direction = vec3.fromValues(0, 0, 0);
+    vec3.normalize(direction, offset);
+   /* if(vec3.length(direction) > 0) 
+    {
+      vec3.normalize(direction, direction);
+    }*/
+
+    var G = .09;
+    if(attractParticles)
+    {
+      G = 1.0;
+    }
+    
     var mass1 = p.mass;
-    var mass2 = 300 * mass1; // arbitrarily setting mass of attractor to be 3 times that of a particle
-    var distance = vec3.distance(mouseClickWorldLocation, p.currPos);
-    var m = (G * mass1 * mass2) / (distance * distance);
-    var dir = vec3.create();
+    var mass2 = 5 * mass1; // arbitrarily setting mass of attractor to be 2 times that of a particle
+
+    //console.log(distance);
+    var m = (G * mass1 * mass2) / (distance * distance * .25);
+    var dir = vec3.fromValues(0, 0, 0);
 
     if(attractParticles)
     {    
-      vec3.scale(dir, direction, m);
+      // if particle is at edge of bounding box, reverse direction of acceleration
+      if(distance < bounds)
+      {
+        //vec3.scale(dir, direction, -m);
+      } else {
+        vec3.scale(dir, direction, m);
+      }
 
     } else if (repelParticles)
     {
-      vec3.scale(dir, direction, m * -1.0);
+      // if particle is at edge of bounding box, reverse direction of acceleration
+      if(distance > bounds)
+      {
+        //vec3.scale(dir, direction, -m);
+      } else {
+        vec3.scale(dir, direction, -m);
+      }
     }
+
     return dir;
   }
 
@@ -239,14 +292,12 @@ function main() {
     // update the positions of all the particles
     for(let i = 0; i < particles.length; i++)
     {
-      let p = particles[i];
+      var p = particles[i];
 
-      var v = vec3.create();
-      vec3.scale(v, calculateForce(p), 100000000);
-      //if(attractParticles && !isNaN(mouseDownX))   {debugger;}
-      p.applyForce(v);
+      var v = calculateForce(p);
+      p.applyForce(vec3.fromValues(v[0]/1000, v[1]/1000, v[2]/1000));
       p.step(dt);
-     
+
       //update offsets array
       offsetsArray[i * 3] = p.currPos[0];
       offsetsArray[i * 3 + 1] = p.currPos[1];
@@ -294,9 +345,12 @@ function main() {
   });
 
   window.addEventListener('mousedown',(ev: MouseEvent) => {
-    mouseDownX = ev.screenX;
-    mouseDownY = ev.screenY;
-    console.log("x: " + mouseDownX + ", y: " + mouseDownX);
+    mouseDownX = ev.screenX - canvas.offsetLeft;
+    mouseDownY = ev.screenY - canvas.offsetTop;
+    // transform mosueclick (x,y) coords into worldspace coords
+    mouseClickWorldLocation = raycast();
+    console.log("x: " + mouseDownX + ", y: " + mouseDownY);
+    console.log("world pos: " + mouseClickWorldLocation);
   });
 
   window.addEventListener('mouseup', (ev: MouseEvent) => {

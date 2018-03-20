@@ -15,6 +15,8 @@ class Particle {
    mass : number;
    id : number;
 
+   bounds : number;
+
    constructor(pos : vec3, vel : vec3, acc : vec3, offset : vec3, color: vec4, id: number)
    {
         this.currPos = pos;
@@ -27,14 +29,13 @@ class Particle {
         this.offset = offset;
         this.color = color;
 
-        this.mass = 2.0;
+        this.mass = 20.0;
         this.id = id;
    }
 
    // update position with verlet integration
    step(dt: number)
-   {
-  
+   { 
         var newPos = vec3.create();
         var currPosMinusOldPos = vec3.create();
         var positionTerm = vec3.create();
@@ -44,6 +45,7 @@ class Particle {
         vec3.subtract(currPosMinusOldPos, this.currPos, this.prevPos);
         // p + (p - p*)
         vec3.add(positionTerm, this.currPos, currPosMinusOldPos);
+
         // a * (dt^2)
         var dt2 = dt * dt;
         vec3.scale(accelerationTerm, this.acceleration, dt2);
@@ -56,15 +58,12 @@ class Particle {
 
         if(dt % 1000 == 0) 
         {
-
             //update color
             // color takes distance from origin as input for time being. In future, update this to be distance from attractor/repellor force, i.e. mouseclick (x,y)
             var t = vec3.dist(this.currPos, vec3.fromValues(0, 0, 0));
             var vec3color = this.cosColor(t);
             this.color = vec4.fromValues(Math.max(0, vec3color[0]), Math.max(0, vec3color[1]), Math.max(0, vec3color[2]), 1.0);
         }
-        
-
    }
 
     cosColor(t: number) : vec3
@@ -92,7 +91,6 @@ class Particle {
    // updates the acceleration
    applyForce(f: vec3)
    {
-       
         var newAcc = vec3.create();
         vec3.scale(newAcc, f, 1/this.mass);
         this.acceleration = newAcc;
