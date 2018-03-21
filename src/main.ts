@@ -41,9 +41,7 @@ let mesh: Mesh;
 // Define an object with application parameters and button callbacks
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
-  tesselations: 5,
-  'Load Scene': loadScene, // A function pointer, essentially
-  mesh: 0,
+  mesh: 'none',
 };
 
 let square: Square;
@@ -96,9 +94,29 @@ function cosColor(t: number) : vec3
 function setUpParticles()
 {
 
-  mesh = new Mesh(vec3.fromValues(0,0,0));
-  mesh.loadBuffers(readTextFile('src/objs/cube.obj'));
-  mesh.create();
+  if(controls.mesh === 'none')
+  {
+    meshAttract = false;
+  } else {
+    meshAttract = true;
+  }
+  if(meshAttract) {
+    mesh = new Mesh(vec3.fromValues(0,0,0));
+    if(controls.mesh === 'cube') 
+    {
+      mesh.loadBuffers(readTextFile('src/objs/cube.obj'));
+    } else if (controls.mesh === 'wahoo')
+    {
+      mesh.loadBuffers(readTextFile('src/objs/wahoo.obj'));
+    } else if (controls.mesh === 'pyramid')
+    {
+      mesh.loadBuffers(readTextFile('src/objs/pyramid.obj'));
+    } else if (controls.mesh === 'cylinder')
+    {
+      mesh.loadBuffers(readTextFile('src/objs/cylinder.obj'));
+    }
+    mesh.create();
+}
 
   bounds = 15;
   particles = new Array<Particle>();
@@ -169,6 +187,7 @@ function main() {
 
   // Add controls to the gui
   const gui = new DAT.GUI();
+  gui.add(controls, 'mesh', ['none','cube', 'wahoo', 'pyramid', 'cylinder']);
 
   // get canvas and webgl context
   const canvas = <HTMLCanvasElement> document.getElementById('canvas');
@@ -295,7 +314,7 @@ function main() {
       distance = bounds;
     }
     
-    const farThreshold = 20;
+    const farThreshold = 16;
     if (distance > farThreshold)
     {
       distance = farThreshold; // tune this value, but keeps it from getting too far away
