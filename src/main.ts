@@ -119,7 +119,7 @@ function setUpParticles()
 
         var cX = i;
         var cY = j;
-        var cZ = 0;
+        var cZ = Math.random() * 2;
 
         var pX = cX;
         var pY = cY;
@@ -127,8 +127,8 @@ function setUpParticles()
   
 
       // var position = vec3.fromValues(i, j, 0);
-        var position = vec3.fromValues(cX, cY, 0);
-        var prevPos = vec3.fromValues(pX, pY, 0);
+        var position = vec3.fromValues(cX, cY, cZ);
+        var prevPos = vec3.fromValues(pX, pY, pZ);
         var velocity = vec3.fromValues(0, 0, 0);
         var acceleration = vec3.fromValues(0, 0, 0);
         var offset = vec3.fromValues(i, j, 0);
@@ -143,7 +143,7 @@ function setUpParticles()
 
         offsetsArray.push(cX);
         offsetsArray.push(cY);
-        offsetsArray.push(0);
+        offsetsArray.push(cZ);
 
         colorsArray.push(color[0]);
         colorsArray.push(color[1]);
@@ -265,7 +265,7 @@ function main() {
         // remap i to be in valid range
         i = Math.floor(remap(0, meshVerts.length, 0, particles.length, i));
       }
-      meshAttractorLocation = vec3.fromValues(meshVerts[i * 4], meshVerts[i * 4 + 1], meshVerts[i * 4 + 2]);
+      meshAttractorLocation = vec3.fromValues(meshVerts[i * 4] * 5, meshVerts[i * 4 + 1] * 5, meshVerts[i * 4 + 2] * 5);
       mouseOffset = vec3.fromValues(0, 0, 0);
       vec3.scaleAndAdd(pointOfInterest, meshAttractorLocation, mouseOffset, .01 * bounds);
     } else {
@@ -314,7 +314,7 @@ function main() {
 
     if(meshAttract)
     {
-      scaleMass2 = 1000;
+      scaleMass2 = 100;
     }
     
     var mass1 = p.mass;
@@ -376,6 +376,7 @@ function main() {
       if(meshAttract)
       {
         meshVert = i;
+       // debugger;
       } else {
         meshVert = -1;
       }
