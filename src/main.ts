@@ -60,7 +60,7 @@ let mouseUpY: number;
 
 let attractParticles: boolean = true;
 let repelParticles: boolean = false;
-let meshAttract: boolean = false;
+let meshAttract: boolean = true;
 
 let mouseClickWorldLocation: vec3 = vec3.fromValues(0, 0, 0);
 
@@ -99,7 +99,6 @@ function setUpParticles()
   mesh = new Mesh(vec3.fromValues(0,0,0));
   mesh.loadBuffers(readTextFile('src/objs/cube.obj'));
   mesh.create();
-  debugger;
 
   bounds = 15;
   particles = new Array<Particle>();
@@ -240,6 +239,11 @@ function main() {
     return p;
   }
 
+  function remap(low2: number, high2: number, low1: number, high1 : number, value :number)
+  {
+    return low2 + (value - low1) * (high2 - low2) / (high1 - low1);
+  }
+
   // referenced http://natureofcode.com/book/chapter-2-forces/
   function calculateForce(p : Particle, i : number) : vec3
   {
@@ -248,21 +252,24 @@ function main() {
     if(mouseClickWorldLocation == null) mouseClickWorldLocation = vec3.fromValues(0,0,0);
 
     var pointOfInterest = vec3.create();
+    var mouseOffset = vec3.fromValues(Math.random(), Math.random(), Math.random());
 
     // if i != -1, mesh attraction
     if(i != -1)
     {
+      //debugger;
       var meshAttractorLocation = vec3.create();
       var meshVerts = mesh.positions;
-      if(i * 3 >= meshVerts.length - 1) 
+      if(i * 4 > meshVerts.length) 
       {
-        // remap i
-        i = meshVerts.length/3 - 3;
+        // remap i to be in valid range
+        i = Math.floor(remap(0, meshVerts.length, 0, particles.length, i));
       }
-      meshAttractorLocation = vec3.fromValues(meshVerts[i * 3], meshVerts[i * 3 + 1], meshVerts[i * 3 + 2]);
+      meshAttractorLocation = vec3.fromValues(meshVerts[i * 4], meshVerts[i * 4 + 1], meshVerts[i * 4 + 2]);
+      mouseOffset = vec3.fromValues(0, 0, 0);
       vec3.scaleAndAdd(pointOfInterest, meshAttractorLocation, mouseOffset, .01 * bounds);
     } else {
-      var mouseOffset = vec3.fromValues(Math.random(), Math.random(), Math.random());
+      
       vec3.normalize(mouseOffset, mouseOffset);
       vec3.scaleAndAdd(pointOfInterest, mouseClickWorldLocation, mouseOffset, .01 * bounds);
     }
@@ -303,6 +310,11 @@ function main() {
     {
       G = .1;
       scaleMass2 = 100;
+    }
+
+    if(meshAttract)
+    {
+      scaleMass2 = 1000;
     }
     
     var mass1 = p.mass;
@@ -367,6 +379,7 @@ function main() {
       } else {
         meshVert = -1;
       }
+
       var v = calculateForce(p, meshVert);
       p.applyForce(vec3.fromValues(v[0]/1500, v[1]/1500, v[2]/1500));
         
