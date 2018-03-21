@@ -55,6 +55,20 @@ class Particle {
         //update previous and current positions
         this.prevPos = this.currPos;
         this.currPos = newPos;
+
+        /*    var velocity = vec3.create();
+        vec3.scale(velocity, this.currVel, dt);
+        var pos = vec3.create();
+        vec3.add(pos, this.currPos, velocity);
+        this.currPos = pos;
+
+        var accel = vec3.create();
+        vec3.scale(accel, this.acceleration, dt);
+        var vel = vec3.create();
+        vec3.add(vel, velocity, accel);
+        this.currVel = vel;*/
+    
+
    }
 
   
