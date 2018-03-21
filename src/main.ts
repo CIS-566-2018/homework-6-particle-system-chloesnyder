@@ -8,12 +8,42 @@ import {setGL} from './globals';
 import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 import Particle from './particle';
 import { transformMat4 } from 'gl-vec4';
+import Mesh from './geometry/Mesh';
+import * as fs from 'fs';
+
+
+var OBJ = require('webgl-obj-loader');
+
+
+let mesh: Mesh;
+
+ //https://stackoverflow.com/questions/14446447/how-to-read-a-local-text-file
+ function readTextFile(file: string) : string
+ {
+     var text = "";
+     var rawFile = new XMLHttpRequest();
+     rawFile.open("GET", file, false);
+     rawFile.onreadystatechange = function ()
+     {
+         if(rawFile.readyState === 4)
+         {
+             if(rawFile.status === 200 || rawFile.status == 0)
+             {
+                 var allText = rawFile.responseText;
+                 text = allText;
+             }
+         }
+     }
+     rawFile.send(null);
+     return text;
+ }
 
 // Define an object with application parameters and button callbacks
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
   tesselations: 5,
   'Load Scene': loadScene, // A function pointer, essentially
+  mesh: 0,
 };
 
 let square: Square;
@@ -30,10 +60,15 @@ let mouseUpY: number;
 
 let attractParticles: boolean = true;
 let repelParticles: boolean = false;
+let meshAttract: boolean = false;
 
-let mouseClickWorldLocation: vec3;
+let mouseClickWorldLocation: vec3 = vec3.fromValues(0, 0, 0);
 
 let bounds: number;
+
+let camera = new Camera(vec3.fromValues(50, 50, 10), vec3.fromValues(50, 50, 0));
+
+let rayCastDebug: Square;
 
 
 function cosColor(t: number) : vec3
@@ -60,53 +95,62 @@ function cosColor(t: number) : vec3
 
 function setUpParticles()
 {
+
+  mesh = new Mesh(vec3.fromValues(0,0,0));
+  mesh.loadBuffers(readTextFile('src/objs/cube.obj'));
+  mesh.create();
+  debugger;
+
   bounds = 15;
   particles = new Array<Particle>();
   square = new Square();
   square.create();
 
+  rayCastDebug = new Square();
+  rayCastDebug.create();
+
   // Set up particles here. Hard-coded example data for now
   offsetsArray = [];
   colorsArray = [];
-  n = 20.0;
+  n = 100.0;
   var id = 0;
   
   for(let i = 0; i < n; i++) {
     for(let j = 0; j < n; j++) {
-      //randomly generate curr and "previous" position within bounding box for initial velocity
-      var cX = i;//Math.random() * bounds - (bounds / 2);
-      var cY = j;//Math.random() * bounds - (bounds / 2);
-      var cZ = 0;//Math.random() * bounds - (bounds / 2);
 
-      var pX = i;//Math.random() * bounds - (bounds / 2);
-      var pY = j;//Math.random() * bounds - (bounds / 2);
-      var pZ = 0;//Math.random() * bounds - (bounds / 2);
- 
+        var cX = i;
+        var cY = j;
+        var cZ = 0;
 
-     // var position = vec3.fromValues(i, j, 0);
-      var position = vec3.fromValues(cX, cY, 0);
-      var prevPos = vec3.fromValues(pX, pY, 0);
-      var velocity = vec3.fromValues(0, 0, 0);
-      var acceleration = vec3.fromValues(0, 0, 0);
-      var offset = vec3.fromValues(i, j, 0);
+        var pX = cX;
+        var pY = cY;
+        var pZ = cZ;
+  
 
-      var t = vec3.dist(position, vec3.fromValues(0,0,0)); // color takes distance from origin as input for time being. In future, update this to be distance from attractor/repellor force, i.e. mouseclick (x,y)
-      var vec3color = cosColor(t);
-      var color = vec4.fromValues(Math.max(0, vec3color[0]), Math.max(0, vec3color[1]), Math.max(0, vec3color[2]), 1.0);
-      var currParticle = new Particle(position, velocity, acceleration, offset, color, id);
-      currParticle.prevPos = prevPos;
-      currParticle.bounds = bounds;
-      particles.push(currParticle);
+      // var position = vec3.fromValues(i, j, 0);
+        var position = vec3.fromValues(cX, cY, 0);
+        var prevPos = vec3.fromValues(pX, pY, 0);
+        var velocity = vec3.fromValues(0, 0, 0);
+        var acceleration = vec3.fromValues(0, 0, 0);
+        var offset = vec3.fromValues(i, j, 0);
 
-      offsetsArray.push(cX);
-      offsetsArray.push(cY);
-      offsetsArray.push(0);
+        var t = vec3.dist(position, vec3.fromValues(0,0,0)); // color takes distance from origin as input for time being. In future, update this to be distance from attractor/repellor force, i.e. mouseclick (x,y)
+        var vec3color = cosColor(t);
+        var color = vec4.fromValues(Math.max(0, vec3color[0]), Math.max(0, vec3color[1]), Math.max(0, vec3color[2]), 1.0);
+        var currParticle = new Particle(position, velocity, acceleration, offset, color, id);
+        currParticle.prevPos = prevPos;
+        currParticle.bounds = bounds;
+        particles.push(currParticle);
 
-      colorsArray.push(color[0]);
-      colorsArray.push(color[1]);
-      colorsArray.push(color[2]);
-      colorsArray.push(1.0); // Alpha channel
-      id++;
+        offsetsArray.push(cX);
+        offsetsArray.push(cY);
+        offsetsArray.push(0);
+
+        colorsArray.push(color[0]);
+        colorsArray.push(color[1]);
+        colorsArray.push(color[2]);
+        colorsArray.push(.2); // Alpha channel
+        id++;
     }
   }
 }
@@ -140,7 +184,7 @@ function main() {
   // Initial call to load scene
   loadScene();
 
-  const camera = new Camera(vec3.fromValues(50, 50, 10), vec3.fromValues(50, 50, 0));
+ 
 
   const renderer = new OpenGLRenderer(canvas);
   renderer.setClearColor(0.2, 0.2, 0.2, 1);
@@ -171,7 +215,8 @@ function main() {
 
     // len = |ref - eye|
     var refminuseye = vec3.create();
-    vec3.subtract(refminuseye, camera.target, camera.position);
+    //vec3.add(refminuseye, camera.position, camera.target);
+    vec3.subtract(refminuseye, camera.position, camera.target);
     var len = vec3.length(refminuseye);
    
     // V = U*len*tan(alpha)
@@ -196,16 +241,31 @@ function main() {
   }
 
   // referenced http://natureofcode.com/book/chapter-2-forces/
-  function calculateForce(p : Particle) : vec3
+  function calculateForce(p : Particle, i : number) : vec3
   {
     // calculate direction (mousePos - particlePos)
     var offset = vec3.fromValues(0, 0, 0);
     if(mouseClickWorldLocation == null) mouseClickWorldLocation = vec3.fromValues(0,0,0);
 
-    var mouseOffset = vec3.fromValues(Math.random(), Math.random(), Math.random());
-    vec3.normalize(mouseOffset, mouseOffset);
     var pointOfInterest = vec3.create();
-    vec3.scaleAndAdd(pointOfInterest, mouseClickWorldLocation, mouseOffset, .1 * bounds);
+
+    // if i != -1, mesh attraction
+    if(i != -1)
+    {
+      var meshAttractorLocation = vec3.create();
+      var meshVerts = mesh.positions;
+      if(i * 3 >= meshVerts.length - 1) 
+      {
+        // remap i
+        i = meshVerts.length/3 - 3;
+      }
+      meshAttractorLocation = vec3.fromValues(meshVerts[i * 3], meshVerts[i * 3 + 1], meshVerts[i * 3 + 2]);
+      vec3.scaleAndAdd(pointOfInterest, meshAttractorLocation, mouseOffset, .01 * bounds);
+    } else {
+      var mouseOffset = vec3.fromValues(Math.random(), Math.random(), Math.random());
+      vec3.normalize(mouseOffset, mouseOffset);
+      vec3.scaleAndAdd(pointOfInterest, mouseClickWorldLocation, mouseOffset, .01 * bounds);
+    }
 
     vec3.subtract(offset, pointOfInterest, p.currPos);
     //var particleOffset
@@ -233,21 +293,16 @@ function main() {
     {
       distance = farThreshold; // tune this value, but keeps it from getting too far away
     }
-    // console.log(distance);
 
     var direction = vec3.fromValues(0, 0, 0);
     vec3.normalize(direction, offset);
-   /* if(vec3.length(direction) > 0) 
-    {
-      vec3.normalize(direction, direction);
-    }*/
 
     var G = .05;
     var scaleMass2 = 3;
     if(attractParticles)
     {
-      G = 1.0;
-      scaleMass2 = 10;
+      G = .1;
+      scaleMass2 = 100;
     }
     
     var mass1 = p.mass;
@@ -287,7 +342,7 @@ function main() {
     stats.begin();
 
     var oldTime = time;
-    lambert.setTime(time++);
+    lambert.setTime(time += 10);
     var dt = time - oldTime;
 
     let offsets: Float32Array = new Float32Array(offsetsArray);
@@ -295,14 +350,35 @@ function main() {
     square.setInstanceVBOs(offsets, colors);
     square.setNumInstances(n * n); // 10x10 grid of "particles"
 
+    var mouseclickOffset = new Float32Array([mouseClickWorldLocation[0], mouseClickWorldLocation[1], mouseClickWorldLocation[2]]);
+    var mouseclickColor = new Float32Array([0, 0, 1, 1]);
+    rayCastDebug.setInstanceVBOs(mouseclickOffset, mouseclickColor);
+    rayCastDebug.setNumInstances(1);
+
     // update the positions of all the particles
     for(let i = 0; i < particles.length; i++)
     {
       var p = particles[i];
 
-      var v = calculateForce(p);
-      p.applyForce(vec3.fromValues(v[0]/1000, v[1]/1000, v[2]/1000));
+      var meshVert = 0;
+      if(meshAttract)
+      {
+        meshVert = i;
+      } else {
+        meshVert = -1;
+      }
+      var v = calculateForce(p, meshVert);
+      p.applyForce(vec3.fromValues(v[0]/1500, v[1]/1500, v[2]/1500));
+        
+      
+
+
       p.step(dt);
+     
+      if(time % 10 == 0) {
+         var newcol = cosColor(vec3.distance(p.currPos, mouseClickWorldLocation));
+        p.color = vec4.fromValues(Math.max(0, newcol[0]), Math.max(0, newcol[1]), Math.max(0, newcol[2]), 1.0);
+      }
 
       //update offsets array
       offsetsArray[i * 3] = p.currPos[0];
@@ -320,7 +396,7 @@ function main() {
     gl.viewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.clear();
     renderer.render(camera, lambert, [
-      square,
+      square, rayCastDebug
     ]);
     stats.end();
 
