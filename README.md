@@ -41,3 +41,12 @@ As always, the artistic merit of your project plays a small role in your grade. 
 * (15 points) Create a "flocking" mode for your scene where a smaller collection of particles moves around the environment following the [rules for flocking](https://en.wikipedia.org/wiki/Boids).
 * (15 points) Use audio to drive an attribute of your particles, whether that be color, velocity, size, shape, or something else!
 * (50 points) Create a cloth simulation mode for your scene where you attach particles to each other in a grid using infinitely stiff springs, and perform relaxation iterations over the grid each tick.
+
+known issues:
+- attraction and repulsion works, but not tuned well. Overshoots
+- Mesh attraction nominally works - I can see the particles being attracted to the right areas, but due to issues with force tuning, this also doesn't work well.
+- Issues updating mesh
+- Issues where selecting new mesh is registerd as a mouse click/attraction point
+- Raycasting is off, it's off set weirdly (displayed by blue particle)
+
+Basically, this doesn't work. 
