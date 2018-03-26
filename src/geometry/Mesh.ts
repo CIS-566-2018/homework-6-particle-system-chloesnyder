@@ -39,7 +39,7 @@ loadTempPos(positions : any)
    { 
       for(var i = 0; i < positions.length; i++)
       {
-        this.tempBufPos.push(positions[i] * 10);
+        this.tempBufPos.push(positions[i]);
         if((i + 1) % 3 == 0)
         {
           this.tempBufPos.push(1.0);

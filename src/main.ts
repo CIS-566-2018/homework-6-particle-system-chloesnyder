@@ -58,7 +58,7 @@ let mouseUpY: number;
 
 let attractParticles: boolean = true;
 let repelParticles: boolean = false;
-let meshAttract: boolean = true;
+let meshAttract: boolean = false;
 
 let mouseClickWorldLocation: vec3 = vec3.fromValues(0, 0, 0);
 
@@ -68,6 +68,7 @@ let camera = new Camera(vec3.fromValues(50, 50, 10), vec3.fromValues(50, 50, 0))
 
 let rayCastDebug: Square;
 
+let getMousePoint: boolean = false;
 
 function cosColor(t: number) : vec3
 {
@@ -201,8 +202,6 @@ function main() {
 
   // Initial call to load scene
   loadScene();
-
- 
 
   const renderer = new OpenGLRenderer(canvas);
   renderer.setClearColor(0.2, 0.2, 0.2, 1);
@@ -402,10 +401,7 @@ function main() {
 
       var v = calculateForce(p, meshVert);
       p.applyForce(vec3.fromValues(v[0]/1500, v[1]/1500, v[2]/1500));
-        
-      
-
-
+ 
       p.step(dt);
      
       if(time % 10 == 0) {
@@ -457,15 +453,21 @@ function main() {
       repelParticles = true;
       console.log("Pressed R");
     }
+    if(e.key === "m")
+    {
+      getMousePoint = !getMousePoint;
+    }
   });
 
   window.addEventListener('mousedown',(ev: MouseEvent) => {
-    mouseDownX = ev.screenX;
-    mouseDownY = ev.screenY;
-    // transform mosueclick (x,y) coords into worldspace coords
-    mouseClickWorldLocation = raycast();
-    console.log("x: " + mouseDownX + ", y: " + mouseDownY);
-    console.log("world pos: " + mouseClickWorldLocation);
+    if(getMousePoint) {
+      mouseDownX = ev.screenX;
+      mouseDownY = ev.screenY;
+      // transform mosueclick (x,y) coords into worldspace coords
+      mouseClickWorldLocation = raycast();
+      console.log("x: " + mouseDownX + ", y: " + mouseDownY);
+      console.log("world pos: " + mouseClickWorldLocation);
+    }
   });
 
   window.addEventListener('mouseup', (ev: MouseEvent) => {
